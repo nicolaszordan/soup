@@ -75,14 +75,14 @@ func GetWithClient(url string, client *http.Client) (string, error) {
 		return "", errors.New("couldn't perform GET request to " + url)
 	}
 	defer resp.Body.Close()
-	bytes, err := ioutil.ReadAll(resp.Body)
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		if debug {
 			panic("Unable to read the response body")
 		}
 		return "", errors.New("unable to read the response body")
 	}
-	return string(bytes), nil
+	return string(b), nil
 }
 
 // Get returns the HTML returned by the url in string using the default HTTP client
@@ -117,8 +117,8 @@ func HTMLParse(s string) Root {
 // Find finds the first occurrence of the given tag name,
 // with or without attribute key and value specified,
 // and returns a struct with a pointer to it
-func (r Root) Find(args ...string) Root {
-	temp, ok := findOnce(r.Pointer, args, false, false)
+func (r Root) Find(name string, args ...string) Root {
+	temp, ok := findOne(r.Pointer, name, args, false, false)
 	if ok == false {
 		if debug {
 			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
@@ -132,8 +132,8 @@ func (r Root) Find(args ...string) Root {
 // with or without key and value specified,
 // and returns an array of structs, each having
 // the respective pointers
-func (r Root) FindAll(args ...string) []Root {
-	temp := findAllofem(r.Pointer, args, false)
+func (r Root) FindAll(name string, args ...string) []Root {
+	temp := findAll(r.Pointer, name, args, false)
 	if len(temp) == 0 {
 		if debug {
 			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
@@ -149,8 +149,8 @@ func (r Root) FindAll(args ...string) []Root {
 
 // FindStrict finds the first occurrence of the given tag name
 // only if all the values of the provided attribute are an exact match
-func (r Root) FindStrict(args ...string) Root {
-	temp, ok := findOnce(r.Pointer, args, false, true)
+func (r Root) FindStrict(name string, args ...string) Root {
+	temp, ok := findOne(r.Pointer, name, args, false, true)
 	if ok == false {
 		if debug {
 			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
@@ -162,8 +162,8 @@ func (r Root) FindStrict(args ...string) Root {
 
 // FindAllStrict finds all occurrences of the given tag name
 // only if all the values of the provided attribute are an exact match
-func (r Root) FindAllStrict(args ...string) []Root {
-	temp := findAllofem(r.Pointer, args, true)
+func (r Root) FindAllStrict(name string, args ...string) []Root {
+	temp := findAll(r.Pointer, name, args, true)
 	if len(temp) == 0 {
 		if debug {
 			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
@@ -237,15 +237,13 @@ func (r Root) FindPrevElementSibling() Root {
 	return p.FindPrevElementSibling()
 }
 
-// Children retuns all direct children of this DOME element.
+// Children returns all direct children of this DOME element.
 func (r Root) Children() []Root {
-	child := r.Pointer.FirstChild
-	var children []Root
-	for child != nil {
-		children = append(children, Root{child, child.Data, nil})
-		child = child.NextSibling
+	var cs []Root
+	for c := r.Pointer.FirstChild; c != nil; c = c.NextSibling {
+		cs = append(cs, Root{c, c.Data, nil})
 	}
-	return children
+	return cs
 }
 
 // Attrs returns a map containing all attributes
@@ -316,27 +314,27 @@ func (r Root) FullText() string {
 }
 
 // Using depth first search to find the first occurrence and return
-func findOnce(n *html.Node, args []string, uni bool, strict bool) (*html.Node, bool) {
+func findOne(n *html.Node, name string, args []string, uni bool, strict bool) (*html.Node, bool) {
 	if uni == true {
-		if n.Type == html.ElementNode && n.Data == args[0] {
-			if len(args) > 1 && len(args) < 4 {
+		if n.Type == html.ElementNode && n.Data == name {
+			if len(args) == 2 {
 				for i := 0; i < len(n.Attr); i++ {
 					attr := n.Attr[i]
-					searchAttrName := args[1]
-					searchAttrVal := args[2]
+					searchAttrName := args[0]
+					searchAttrVal := args[1]
 					if (strict && attributeAndValueEquals(attr, searchAttrName, searchAttrVal)) ||
 						(!strict && attributeContainsValue(attr, searchAttrName, searchAttrVal)) {
 						return n, true
 					}
 				}
-			} else if len(args) == 1 {
+			} else if len(args) == 0 {
 				return n, true
 			}
 		}
 	}
 	uni = true
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		p, q := findOnce(c, args, true, strict)
+		p, q := findOne(c, name, args, true, strict)
 		if q != false {
 			return p, q
 		}
@@ -345,23 +343,23 @@ func findOnce(n *html.Node, args []string, uni bool, strict bool) (*html.Node, b
 }
 
 // Using depth first search to find all occurrences and return
-func findAllofem(n *html.Node, args []string, strict bool) []*html.Node {
+func findAll(n *html.Node, name string, args []string, strict bool) []*html.Node {
 	var nodeLinks = make([]*html.Node, 0, 10)
 	var f func(*html.Node, []string, bool)
 	f = func(n *html.Node, args []string, uni bool) {
 		if uni == true {
-			if n.Data == args[0] {
-				if len(args) > 1 && len(args) < 4 {
+			if n.Data == name {
+				if len(args) == 2 {
 					for i := 0; i < len(n.Attr); i++ {
 						attr := n.Attr[i]
-						searchAttrName := args[1]
-						searchAttrVal := args[2]
+						searchAttrName := args[0]
+						searchAttrVal := args[1]
 						if (strict && attributeAndValueEquals(attr, searchAttrName, searchAttrVal)) ||
 							(!strict && attributeContainsValue(attr, searchAttrName, searchAttrVal)) {
 							nodeLinks = append(nodeLinks, n)
 						}
 					}
-				} else if len(args) == 1 {
+				} else if len(args) == 0 {
 					nodeLinks = append(nodeLinks, n)
 				}
 			}
@@ -394,14 +392,13 @@ func attributeContainsValue(attr html.Attribute, attribute, value string) bool {
 	return false
 }
 
-// Returns a key pair value (like a dictionary) for each attribute
+// Returns a key pair value for each attribute
 func getKeyValue(attributes []html.Attribute) map[string]string {
-	var keyvalues = make(map[string]string)
-	for i := 0; i < len(attributes); i++ {
-		_, exists := keyvalues[attributes[i].Key]
-		if exists == false {
-			keyvalues[attributes[i].Key] = attributes[i].Val
+	var keyValues = make(map[string]string)
+	for _, a := range attributes {
+		if _, exists := keyValues[a.Key]; !exists {
+			keyValues[a.Key] = a.Val
 		}
 	}
-	return keyvalues
+	return keyValues
 }
