@@ -22,7 +22,10 @@ type Root struct {
 	Error     error
 }
 
-var debug = false
+// Debug status
+// Setting this to true causes the panics to be thrown and logged onto the console.
+// Setting this to false causes the errors to be saved in the Error field in the returned struct.
+var Debug = false
 
 // Headers contains all HTTP headers to send
 var Headers = make(map[string]string)
@@ -30,27 +33,11 @@ var Headers = make(map[string]string)
 // Cookies contains all HTTP cookies to send
 var Cookies = make(map[string]string)
 
-// SetDebug sets the debug status
-// Setting this to true causes the panics to be thrown and logged onto the console.
-// Setting this to false causes the errors to be saved in the Error field in the returned struct.
-func SetDebug(d bool) {
-	debug = d
-}
-
-// Header sets a new HTTP header
-func Header(n string, v string) {
-	Headers[n] = v
-}
-
-func Cookie(n string, v string) {
-	Cookies[n] = v
-}
-
 // GetWithClient returns the HTML returned by the url using a provided HTTP client
 func GetWithClient(url string, client *http.Client) (string, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		if debug {
+		if Debug {
 			panic("Couldn't perform GET request to " + url)
 		}
 		return "", errors.New("couldn't perform GET request to " + url)
@@ -69,7 +56,7 @@ func GetWithClient(url string, client *http.Client) (string, error) {
 	// Perform request
 	resp, err := client.Do(req)
 	if err != nil {
-		if debug {
+		if Debug {
 			panic("Couldn't perform GET request to " + url)
 		}
 		return "", errors.New("couldn't perform GET request to " + url)
@@ -77,7 +64,7 @@ func GetWithClient(url string, client *http.Client) (string, error) {
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		if debug {
+		if Debug {
 			panic("Unable to read the response body")
 		}
 		return "", errors.New("unable to read the response body")
@@ -96,7 +83,7 @@ func Get(url string) (string, error) {
 func HTMLParse(s string) Root {
 	r, err := html.Parse(strings.NewReader(s))
 	if err != nil {
-		if debug {
+		if Debug {
 			panic("Unable to parse the HTML")
 		}
 		return Root{nil, "", errors.New("unable to parse the HTML")}
@@ -120,10 +107,10 @@ func HTMLParse(s string) Root {
 func (r Root) Find(name string, args ...string) Root {
 	temp, ok := findOne(r.Pointer, name, args, false, false)
 	if ok == false {
-		if debug {
-			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
+		if Debug {
+			panic("Element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")
 		}
-		return Root{nil, "", errors.New("element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")}
+		return Root{nil, "", errors.New("element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")}
 	}
 	return Root{temp, temp.Data, nil}
 }
@@ -135,8 +122,8 @@ func (r Root) Find(name string, args ...string) Root {
 func (r Root) FindAll(name string, args ...string) []Root {
 	temp := findAll(r.Pointer, name, args, false)
 	if len(temp) == 0 {
-		if debug {
-			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
+		if Debug {
+			panic("Element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")
 		}
 		return []Root{}
 	}
@@ -152,10 +139,10 @@ func (r Root) FindAll(name string, args ...string) []Root {
 func (r Root) FindStrict(name string, args ...string) Root {
 	temp, ok := findOne(r.Pointer, name, args, false, true)
 	if ok == false {
-		if debug {
-			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
+		if Debug {
+			panic("Element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")
 		}
-		return Root{nil, "", errors.New("element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")}
+		return Root{nil, "", errors.New("element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")}
 	}
 	return Root{temp, temp.Data, nil}
 }
@@ -165,8 +152,8 @@ func (r Root) FindStrict(name string, args ...string) Root {
 func (r Root) FindAllStrict(name string, args ...string) []Root {
 	temp := findAll(r.Pointer, name, args, true)
 	if len(temp) == 0 {
-		if debug {
-			panic("Element `" + args[0] + "` with attributes `" + strings.Join(args[1:], " ") + "` not found")
+		if Debug {
+			panic("Element `" + name + "` with attributes `" + strings.Join(args, " ") + "` not found")
 		}
 		return []Root{}
 	}
@@ -182,7 +169,7 @@ func (r Root) FindAllStrict(name string, args ...string) []Root {
 func (r Root) FindNextSibling() Root {
 	nextSibling := r.Pointer.NextSibling
 	if nextSibling == nil {
-		if debug {
+		if Debug {
 			panic("No next sibling found")
 		}
 		return Root{nil, "", errors.New("no next sibling found")}
@@ -195,7 +182,7 @@ func (r Root) FindNextSibling() Root {
 func (r Root) FindPrevSibling() Root {
 	prevSibling := r.Pointer.PrevSibling
 	if prevSibling == nil {
-		if debug {
+		if Debug {
 			panic("No previous sibling found")
 		}
 		return Root{nil, "", errors.New("no previous sibling found")}
@@ -208,7 +195,7 @@ func (r Root) FindPrevSibling() Root {
 func (r Root) FindNextElementSibling() Root {
 	nextSibling := r.Pointer.NextSibling
 	if nextSibling == nil {
-		if debug {
+		if Debug {
 			panic("No next element sibling found")
 		}
 		return Root{nil, "", errors.New("no next element sibling found")}
@@ -225,7 +212,7 @@ func (r Root) FindNextElementSibling() Root {
 func (r Root) FindPrevElementSibling() Root {
 	prevSibling := r.Pointer.PrevSibling
 	if prevSibling == nil {
-		if debug {
+		if Debug {
 			panic("No previous element sibling found")
 		}
 		return Root{nil, "", errors.New("no previous element sibling found")}
@@ -249,7 +236,7 @@ func (r Root) Children() []Root {
 // Attrs returns a map containing all attributes
 func (r Root) Attrs() map[string]string {
 	if r.Pointer.Type != html.ElementNode {
-		if debug {
+		if Debug {
 			panic("Not an ElementNode")
 		}
 		return nil
@@ -267,7 +254,7 @@ checkNode:
 	if k != nil && k.Type != html.TextNode {
 		k = k.NextSibling
 		if k == nil {
-			if debug {
+			if Debug {
 				panic("No text node found")
 			}
 			return ""
@@ -279,7 +266,7 @@ checkNode:
 		if ok := r.MatchString(k.Data); ok {
 			k = k.NextSibling
 			if k == nil {
-				if debug {
+				if Debug {
 					panic("No text node found")
 				}
 				return ""
